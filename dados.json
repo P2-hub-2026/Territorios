@@ -1,0 +1,22 @@
+[
+  {
+    "codigo": "jrdTer52",
+    "numero": "52",
+    "grupo": "Grupo 3",
+    "corGrupo": "#FFA500",
+    "status": "Livre",
+    "responsavel": "",
+    "dataInicio": "",
+    "dataConclusao": "2026-07-15"
+  },
+  {
+    "codigo": "jrdTer25",
+    "numero": "25",
+    "grupo": "Grupo 2",
+    "corGrupo": "#2ECC71",
+    "status": "Iniciado",
+    "responsavel": "Carlos Silva",
+    "dataInicio": "2026-08-10",
+    "dataConclusao": ""
+  }
+]
