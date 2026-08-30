@@ -76,7 +76,7 @@ function obterCorPoligono(codigo) {
   }
 }
 
-// 4. Renderização dos Polígonos
+// 4. Renderização dos Polígonos com estilo melhorado
 function renderizarMapa() {
   if (geojsonLayer) map.removeLayer(geojsonLayer);
 
@@ -88,12 +88,15 @@ function renderizarMapa() {
       const item = dadosTerritorios.find(t => t.codigo === feature.properties.name);
       return item && item.grupo === filtroGrupo;
     },
-    style: (feature) => ({
-      color: obterCorPoligono(feature.properties.name),
-      weight: 2,
-      fillColor: obterCorPoligono(feature.properties.name),
-      fillOpacity: 0.4
-    }),
+    style: (feature) => {
+      const cor = obterCorPoligono(feature.properties.name);
+      return {
+        color: cor,                // borda com a mesma cor
+        weight: 3,                 // borda mais grossa
+        fillColor: cor,
+        fillOpacity: 0.7           // preenchimento mais opaco (visível)
+      };
+    },
     onEachFeature: (feature, layer) => {
       const nome = feature.properties.name || '';
       
@@ -129,13 +132,13 @@ function abrirPainelTerritorio(codigo, layer) {
 
   territorioAtivo = { info: item, layer: layer };
 
-  // Destaque visual no mapa (contorno branco reforçado)
+  // Destaque visual no mapa (contorno branco reforçado e preenchimento mais vivo)
   if (layer) {
     camadaDestacada = layer;
     layer.setStyle({
       weight: 4,
-      color: '#FFFFFF',
-      fillOpacity: 0.65
+      color: '#FFFFFF',          // borda branca de alto contraste
+      fillOpacity: 0.85          // preenchimento bem visível
     });
     layer.bringToFront();
     map.fitBounds(layer.getBounds(), { padding: [50, 50], maxZoom: 17 });
@@ -182,35 +185,29 @@ function alterarStatusTerritorio(novoStatus) {
   abrirPainelTerritorio(territorioAtivo.info.codigo, territorioAtivo.layer);
 }
 
-// 7. NOVA FUNÇÃO: Abrir no Google Maps com o contorno do polígono (via waypoints)
+// 7. Abrir no Google Maps com o contorno do polígono (via waypoints)
 function abrirRotaGoogleMaps() {
   if (!territorioAtivo || !territorioAtivo.layer) return;
 
   const feature = territorioAtivo.layer.feature;
-  // Extrai o primeiro anel do polígono (coordenadas[0]) – cada ponto é [lng, lat, alt]
   const coords = feature.geometry.coordinates[0];
-  // Converte para array de objetos com lat/lng (ignorando altitude)
   const pontos = coords.map(c => ({ lat: c[1], lng: c[0] }));
 
-  // Limita o número de waypoints para não estourar o limite da URL (máximo 23 waypoints, mas usamos 20 por segurança)
   const maxWaypoints = 20;
   let pontosSelecionados = [];
 
   if (pontos.length <= maxWaypoints + 2) {
     pontosSelecionados = pontos;
   } else {
-    // Amostragem uniforme para manter o formato geral
     const passo = Math.floor((pontos.length - 1) / (maxWaypoints + 1));
     for (let i = 0; i < pontos.length - 1; i += passo) {
       pontosSelecionados.push(pontos[i]);
     }
-    // Garante que o último ponto seja incluído (fechamento do polígono)
     if (pontosSelecionados[pontosSelecionados.length - 1] !== pontos[pontos.length - 1]) {
       pontosSelecionados.push(pontos[pontos.length - 1]);
     }
   }
 
-  // Define origem = primeiro ponto, destino = último, waypoints = os intermediários
   const origin = `${pontosSelecionados[0].lat},${pontosSelecionados[0].lng}`;
   const destination = `${pontosSelecionados[pontosSelecionados.length - 1].lat},${pontosSelecionados[pontosSelecionados.length - 1].lng}`;
   const waypoints = pontosSelecionados
@@ -218,7 +215,6 @@ function abrirRotaGoogleMaps() {
     .map(p => `${p.lat},${p.lng}`)
     .join('|');
 
-  // Monta a URL da Directions API com waypoints
   const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&waypoints=${encodeURIComponent(waypoints)}&travelmode=walking`;
 
   window.open(url, '_blank');
