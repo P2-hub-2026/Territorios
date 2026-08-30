@@ -1,10 +1,27 @@
-// 1. Inicialização do Mapa com Camada Satélite
-const map = L.map('map').setView([-4.245, -56.008], 14);
-
-L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+// 1. Camadas Oficiais do Google Maps (Satélite Híbrido e Ruas)
+const googleSatHibrido = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
   maxZoom: 20,
-  attribution: 'Google Maps'
-}).addTo(map);
+  attribution: 'Google Maps Satélite'
+});
+
+const googleRuas = L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+  maxZoom: 20,
+  attribution: 'Google Maps Ruas'
+});
+
+// Inicialização do Mapa
+const map = L.map('map', {
+  center: [-4.245, -56.008],
+  zoom: 14,
+  layers: [googleSatHibrido]
+});
+
+// Controle de Alternância de Camadas (Canto superior direito)
+const baseMaps = {
+  "Google Satélite": googleSatHibrido,
+  "Google Ruas": googleRuas
+};
+L.control.layers(baseMaps, null, { position: 'topright' }).addTo(map);
 
 let geojsonLayer = null;
 let dadosTerritorios = [];
@@ -13,7 +30,7 @@ let territorioAtivo = null;
 let marcadorUsuario = null;
 let camadaDestacada = null;
 
-// 2. Carregar Dados com Persistência Local (localStorage)
+// 2. Carregar Dados com Persistência Local
 const dadosSalvos = localStorage.getItem('territorios_dados_db');
 
 Promise.all([
@@ -22,7 +39,6 @@ Promise.all([
 ]).then(([dados, geojson]) => {
   geojsonData = geojson;
   
-  // Cria cadastro padrão para qualquer polígono que não esteja no dados.json
   const codigosExistentes = new Set(dados.map(d => d.codigo));
   
   geojson.features.forEach(feat => {
@@ -47,16 +63,16 @@ Promise.all([
   
   renderizarMapa();
 
-  // Centraliza e dá zoom na área de todos os polígonos
+  // Enquadra a visão inicial em todos os polígonos
   if (geojsonLayer) {
     map.fitBounds(geojsonLayer.getBounds(), { padding: [30, 30] });
   }
 }).catch(err => {
-  console.error("Erro ao carregar dados geográficos:", err);
-  alert("Não foi possível carregar os dados. Verifique a pasta dos arquivos.");
+  console.error("Erro ao carregar dados:", err);
+  alert("Erro ao carregar arquivos de dados.");
 });
 
-// 3. Regra de Cores Dinâmicas
+// 3. Regra de Cores
 function obterCorPoligono(codigo) {
   const item = dadosTerritorios.find(t => t.codigo === codigo);
   const modo = document.getElementById('modo-exibicao').value;
@@ -67,7 +83,6 @@ function obterCorPoligono(codigo) {
     return item.corGrupo || '#3388ff';
   }
 
-  // Cores por Status
   switch (item.status) {
     case 'Iniciado': return '#F4B400';    // Amarelo
     case 'Concluído': return '#007bff';   // Azul
@@ -76,7 +91,7 @@ function obterCorPoligono(codigo) {
   }
 }
 
-// 4. Renderização dos Polígonos com estilo melhorado
+// 4. Renderização dos Polígonos
 function renderizarMapa() {
   if (geojsonLayer) map.removeLayer(geojsonLayer);
 
@@ -88,15 +103,12 @@ function renderizarMapa() {
       const item = dadosTerritorios.find(t => t.codigo === feature.properties.name);
       return item && item.grupo === filtroGrupo;
     },
-    style: (feature) => {
-      const cor = obterCorPoligono(feature.properties.name);
-      return {
-        color: cor,                // borda com a mesma cor
-        weight: 3,                 // borda mais grossa
-        fillColor: cor,
-        fillOpacity: 0.7           // preenchimento mais opaco (visível)
-      };
-    },
+    style: (feature) => ({
+      color: obterCorPoligono(feature.properties.name),
+      weight: 2,
+      fillColor: obterCorPoligono(feature.properties.name),
+      fillOpacity: 0.35
+    }),
     onEachFeature: (feature, layer) => {
       const nome = feature.properties.name || '';
       
@@ -111,17 +123,15 @@ function renderizarMapa() {
   }).addTo(map);
 }
 
-// 5. Exibir Ficha, Destacar Polígono com Linha Grossa e Centralizar
+// 5. Destacar Polígono Ativo com Transição e Borda Reforçada
 function abrirPainelTerritorio(codigo, layer) {
   const item = dadosTerritorios.find(t => t.codigo === codigo);
   if (!item) return;
 
-  // Limpa o destaque anterior
   if (camadaDestacada && geojsonLayer) {
     geojsonLayer.resetStyle(camadaDestacada);
   }
 
-  // Localiza a camada caso a chamada venha do GPS
   if (!layer && geojsonLayer) {
     geojsonLayer.eachLayer(l => {
       if (l.feature && l.feature.properties.name === codigo) {
@@ -132,16 +142,16 @@ function abrirPainelTerritorio(codigo, layer) {
 
   territorioAtivo = { info: item, layer: layer };
 
-  // Destaque visual no mapa (contorno branco reforçado e preenchimento mais vivo)
+  // Destaque visual: Borda grossa branca + preenchimento nítido
   if (layer) {
     camadaDestacada = layer;
     layer.setStyle({
-      weight: 4,
-      color: '#FFFFFF',          // borda branca de alto contraste
-      fillOpacity: 0.85          // preenchimento bem visível
+      weight: 5,
+      color: '#FFFFFF',
+      fillOpacity: 0.7
     });
     layer.bringToFront();
-    map.fitBounds(layer.getBounds(), { padding: [50, 50], maxZoom: 17 });
+    map.flyToBounds(layer.getBounds(), { padding: [40, 40], duration: 1.2 });
   }
 
   document.getElementById('detalhe-codigo').innerText = item.codigo;
@@ -161,7 +171,14 @@ function fecharPainel() {
   }
 }
 
-// 6. Alteração de Status com Gravação no Navegador
+// 6. Focar Suavemente no Território Selecionado
+function focarTerritorioAtivo() {
+  if (territorioAtivo && territorioAtivo.layer) {
+    map.flyToBounds(territorioAtivo.layer.getBounds(), { padding: [40, 40], duration: 1.0 });
+  }
+}
+
+// 7. Alteração de Status
 function alterarStatusTerritorio(novoStatus) {
   if (!territorioAtivo || !territorioAtivo.info) return;
 
@@ -185,42 +202,7 @@ function alterarStatusTerritorio(novoStatus) {
   abrirPainelTerritorio(territorioAtivo.info.codigo, territorioAtivo.layer);
 }
 
-// 7. Abrir no Google Maps com o contorno do polígono (via waypoints)
-function abrirRotaGoogleMaps() {
-  if (!territorioAtivo || !territorioAtivo.layer) return;
-
-  const feature = territorioAtivo.layer.feature;
-  const coords = feature.geometry.coordinates[0];
-  const pontos = coords.map(c => ({ lat: c[1], lng: c[0] }));
-
-  const maxWaypoints = 20;
-  let pontosSelecionados = [];
-
-  if (pontos.length <= maxWaypoints + 2) {
-    pontosSelecionados = pontos;
-  } else {
-    const passo = Math.floor((pontos.length - 1) / (maxWaypoints + 1));
-    for (let i = 0; i < pontos.length - 1; i += passo) {
-      pontosSelecionados.push(pontos[i]);
-    }
-    if (pontosSelecionados[pontosSelecionados.length - 1] !== pontos[pontos.length - 1]) {
-      pontosSelecionados.push(pontos[pontos.length - 1]);
-    }
-  }
-
-  const origin = `${pontosSelecionados[0].lat},${pontosSelecionados[0].lng}`;
-  const destination = `${pontosSelecionados[pontosSelecionados.length - 1].lat},${pontosSelecionados[pontosSelecionados.length - 1].lng}`;
-  const waypoints = pontosSelecionados
-    .slice(1, -1)
-    .map(p => `${p.lat},${p.lng}`)
-    .join('|');
-
-  const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&waypoints=${encodeURIComponent(waypoints)}&travelmode=walking`;
-
-  window.open(url, '_blank');
-}
-
-// 8. GPS em Tempo Real e Detecção de Território
+// 8. GPS em Tempo Real com Transição Suave
 function ativarGPS() {
   if (!navigator.geolocation) {
     alert('Geolocalização não suportada pelo seu dispositivo.');
@@ -258,7 +240,7 @@ function ativarGPS() {
     });
 
     if (!encontrado) {
-      console.log("Localização atual fora dos polígonos.");
+      console.log("Fora dos polígonos cadastrados.");
     }
   }, (erro) => {
     btnGps.innerText = "📍 Onde Estou?";

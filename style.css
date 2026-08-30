@@ -110,12 +110,12 @@ body, html {
   cursor: pointer;
 }
 
-#btn-rota { background: #4285F4; color: white; }
+#btn-focar { background: #4285F4; color: white; }
 #btn-iniciar { background: #F4B400; color: black; }
 #btn-concluir { background: #0F9D58; color: white; }
 #btn-livre { background: #6c757d; color: white; }
 
-/* Identificador com o número/código do território */
+/* Rótulos dos territórios */
 .label-territorio {
   background: rgba(0, 0, 0, 0.75);
   color: #fff;
