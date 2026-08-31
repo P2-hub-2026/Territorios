@@ -1,4 +1,4 @@
-// ID oficial do seu My Maps atualizado
+// ID oficial do seu My Maps
 const MY_MAPS_MID = '1dAuHzaipAg8qPOzuzKCQ8lB3FWW_MiI';
 
 // 1. Inicializa Mapa Leaflet com Camada Satélite
@@ -103,31 +103,21 @@ function alterarStatus(novoStatus) {
   abrirPainel(territorioAtivo.info.codigo, territorioAtivo.layer);
 }
 
-// 7. Abertura Dinâmica no Google Maps com o novo ID do My Maps
+// 7. Abertura Exata da URL do My Maps com Parâmetros de Embed
 function abrirGoogleMaps() {
   if (!territorioAtivo || !territorioAtivo.layer) {
     alert("Selecione um território primeiro.");
     return;
   }
   
-  // Calcula o centro do polígono selecionado
+  // Calcula o centro exato do polígono selecionado
   const bounds = territorioAtivo.layer.getBounds();
   const centro = bounds.getCenter();
-  const lat = centro.lat.toFixed(6);
-  const lng = centro.lng.toFixed(6);
+  const lat = centro.lat.toFixed(14);
+  const lng = centro.lng.toFixed(14);
 
-  // Calcula o zoom dinâmico proporcional à área do território
-  const latDiff = Math.abs(bounds.getNorth() - bounds.getSouth());
-  const lngDiff = Math.abs(bounds.getEast() - bounds.getWest());
-  const maxDiff = Math.max(latDiff, lngDiff);
-
-  let zoom = 17;
-  if (maxDiff > 0.01) zoom = 15;
-  else if (maxDiff > 0.005) zoom = 16;
-  else if (maxDiff < 0.002) zoom = 18;
-
-  // Monta a URL parametrizada exatamente com a sua estrutura do My Maps
-  const urlMyMaps = `https://www.google.com/maps/d/viewer?mid=${MY_MAPS_MID}&ll=${lat}%2C${lng}&z=${zoom}`;
+  // Monta o link no formato solicitado
+  const urlMyMaps = `https://www.google.com/maps/d/u/0/embed?mid=${MY_MAPS_MID}&ehbc=2E312F&noprof=1&ll=${lat}%2C${lng}&z=16`;
   
   window.open(urlMyMaps, '_blank');
 }
