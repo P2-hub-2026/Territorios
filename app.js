@@ -1,7 +1,4 @@
-// Identificador do Google My Maps para exibir os polígonos traçados
-const GOOGLE_MY_MAPS_MID = '143nsIAW7T0eb1rwMMv3T1YPxIMU86tg';
-
-// 1. Inicialização do Mapa Leaflet
+// 1. Inicialização do Mapa com Camada Satélite
 const map = L.map('map').setView([-4.245, -56.008], 14);
 
 L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
@@ -185,26 +182,19 @@ function alterarStatusTerritorio(novoStatus) {
   abrirPainelTerritorio(territorioAtivo.info.codigo, territorioAtivo.layer);
 }
 
-// 7. Geração de URL Dinâmica do Território
+// 7. Geração de URL Dinâmica (Foco na Coordenada e Nome do Território)
 function obterUrlDinamicaMaps() {
   if (!territorioAtivo || !territorioAtivo.layer) return null;
 
+  // 1ª Ação: Verificar a área e o nome do território selecionado
   const bounds = territorioAtivo.layer.getBounds();
   const centro = bounds.getCenter();
   const lat = centro.lat.toFixed(6);
   const lng = centro.lng.toFixed(6);
+  const nomeTerritorio = territorioAtivo.info.codigo; 
 
-  // Calcula o zoom ótimo conforme a extensão do polígono
-  const latDiff = Math.abs(bounds.getNorth() - bounds.getSouth());
-  const lngDiff = Math.abs(bounds.getEast() - bounds.getWest());
-  const maxDiff = Math.max(latDiff, lngDiff);
-
-  let zoom = 17;
-  if (maxDiff > 0.01) zoom = 15;
-  else if (maxDiff > 0.005) zoom = 16;
-  else if (maxDiff < 0.002) zoom = 18;
-
-  return `https://www.google.com/maps/d/viewer?mid=${GOOGLE_MY_MAPS_MID}&ll=${lat}%2C${lng}&z=${zoom}`;
+  // 2ª Ação: Abrir no Maps cravando o pino com o nome correspondente
+  return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}+(${encodeURIComponent(nomeTerritorio)})`;
 }
 
 // Abertura Direta no Maps
@@ -225,6 +215,7 @@ function gerarQRCodeTerritorio() {
     return;
   }
 
+  // Gera o QR Code com a coordenada exata
   const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(urlMaps)}`;
 
   document.getElementById('qr-titulo').innerText = `Território: ${territorioAtivo.info.codigo}`;
