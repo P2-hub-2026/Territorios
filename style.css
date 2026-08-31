@@ -1,193 +1,276 @@
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-  font-family: Arial, sans-serif;
+// 1. Inicialização do Mapa com Camada Satélite
+const map = L.map('map').setView([-4.245, -56.008], 14);
+
+L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+  maxZoom: 20,
+  attribution: 'Google Maps'
+}).addTo(map);
+
+let geojsonLayer = null;
+let dadosTerritorios = [];
+let geojsonData = null;
+let territorioAtivo = null;
+let marcadorUsuario = null;
+let camadaDestacada = null;
+
+// 2. Carregar Dados com Persistência Local (localStorage)
+const dadosSalvos = localStorage.getItem('territorios_dados_db');
+
+Promise.all([
+  dadosSalvos ? Promise.resolve(JSON.parse(dadosSalvos)) : fetch('dados.json').then(res => res.json()).catch(() => []),
+  fetch('territorios.geojson').then(res => res.json())
+]).then(([dados, geojson]) => {
+  geojsonData = geojson;
+  
+  // Cria cadastro padrão para qualquer polígono ausente no dados.json
+  const codigosExistentes = new Set(dados.map(d => d.codigo));
+  
+  geojson.features.forEach(feat => {
+    const nome = feat.properties.name;
+    if (nome && !codigosExistentes.has(nome)) {
+      const numExtraido = nome.replace(/\D/g, '');
+      dados.push({
+        codigo: nome,
+        numero: numExtraido,
+        grupo: "Grupo 1",
+        corGrupo: "#0F9D58",
+        status: "Livre",
+        responsavel: "",
+        dataInicio: "",
+        dataConclusao: ""
+      });
+    }
+  });
+
+  dadosTerritorios = dados;
+  localStorage.setItem('territorios_dados_db', JSON.stringify(dadosTerritorios));
+  
+  renderizarMapa();
+
+  // Enquadra a visualização na extensão completa de todos os territórios
+  if (geojsonLayer) {
+    map.fitBounds(geojsonLayer.getBounds(), { padding: [30, 30] });
+  }
+}).catch(err => {
+  console.error("Erro ao carregar dados geográficos:", err);
+  alert("Não foi possível carregar os arquivos territoriais.");
+});
+
+// 3. Regra de Cores Dinâmicas
+function obterCorPoligono(codigo) {
+  const item = dadosTerritorios.find(t => t.codigo === codigo);
+  const modo = document.getElementById('modo-exibicao').value;
+
+  if (!item) return '#0F9D58';
+
+  if (modo === 'grupos') {
+    return item.corGrupo || '#3388ff';
+  }
+
+  // Cores por Status
+  switch (item.status) {
+    case 'Iniciado': return '#F4B400';    // Amarelo
+    case 'Concluído': return '#007bff';   // Azul
+    case 'Atrasado': return '#EA4335';    // Vermelho
+    default: return '#0F9D58';            // Verde (Livre)
+  }
 }
 
-body, html {
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
+// 4. Renderização dos Polígonos
+function renderizarMapa() {
+  if (geojsonLayer) map.removeLayer(geojsonLayer);
+
+  const filtroGrupo = document.getElementById('filtro-grupo').value;
+
+  geojsonLayer = L.geoJSON(geojsonData, {
+    filter: (feature) => {
+      if (filtroGrupo === 'TODOS') return true;
+      const item = dadosTerritorios.find(t => t.codigo === feature.properties.name);
+      return item && item.grupo === filtroGrupo;
+    },
+    style: (feature) => ({
+      color: obterCorPoligono(feature.properties.name),
+      weight: 2,
+      fillColor: obterCorPoligono(feature.properties.name),
+      fillOpacity: 0.4
+    }),
+    onEachFeature: (feature, layer) => {
+      const nome = feature.properties.name || '';
+      
+      layer.bindTooltip(nome, {
+        permanent: false,
+        direction: 'center',
+        className: 'label-territorio'
+      });
+
+      layer.on('click', () => abrirPainelTerritorio(nome, layer));
+    }
+  }).addTo(map);
 }
 
-#top-bar {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  right: 10px;
-  z-index: 1000;
-  display: flex;
-  gap: 8px;
-  background: rgba(255, 255, 255, 0.95);
-  padding: 8px;
-  border-radius: 8px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+// 5. Exibir Ficha, Destacar Polígono com Linha Grossa e Centralizar
+function abrirPainelTerritorio(codigo, layer) {
+  const item = dadosTerritorios.find(t => t.codigo === codigo);
+  if (!item) return;
+
+  // Restaura estilo da camada previamente selecionada
+  if (camadaDestacada && geojsonLayer) {
+    geojsonLayer.resetStyle(camadaDestacada);
+  }
+
+  // Localiza camada caso tenha sido acionado pelo GPS
+  if (!layer && geojsonLayer) {
+    geojsonLayer.eachLayer(l => {
+      if (l.feature && l.feature.properties.name === codigo) {
+        layer = l;
+      }
+    });
+  }
+
+  territorioAtivo = { info: item, layer: layer };
+
+  // Destaque visual reforçado na tela
+  if (layer) {
+    camadaDestacada = layer;
+    layer.setStyle({
+      weight: 4,
+      color: '#FFFFFF',
+      fillOpacity: 0.65
+    });
+    layer.bringToFront();
+    map.fitBounds(layer.getBounds(), { padding: [50, 50], maxZoom: 17 });
+  }
+
+  document.getElementById('detalhe-codigo').innerText = item.codigo;
+  document.getElementById('detalhe-grupo').innerText = item.grupo;
+  document.getElementById('detalhe-status').innerText = item.status;
+  document.getElementById('detalhe-responsavel').innerText = item.responsavel || 'Ninguém designado';
+  document.getElementById('detalhe-inicio').innerText = item.dataInicio || '--/--/----';
+
+  document.getElementById('painel-detalhes').classList.remove('oculto');
 }
 
-#top-bar select, #top-bar button {
-  padding: 8px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  font-size: 14px;
+function fecharPainel() {
+  document.getElementById('painel-detalhes').classList.add('oculto');
+  if (camadaDestacada && geojsonLayer) {
+    geojsonLayer.resetStyle(camadaDestacada);
+    camadaDestacada = null;
+  }
 }
 
-#filtro-grupo, #modo-exibicao {
-  flex: 1;
+// 6. Alteração de Status com Salvamento Automático
+function alterarStatusTerritorio(novoStatus) {
+  if (!territorioAtivo || !territorioAtivo.info) return;
+
+  const hoje = new Date().toISOString().split('T')[0];
+  territorioAtivo.info.status = novoStatus;
+
+  if (novoStatus === 'Iniciado') {
+    const resp = prompt("Nome do dirigente/publicador responsável:", territorioAtivo.info.responsavel || "");
+    if (resp !== null) territorioAtivo.info.responsavel = resp;
+    territorioAtivo.info.dataInicio = hoje;
+  } else if (novoStatus === 'Concluído') {
+    territorioAtivo.info.dataConclusao = hoje;
+  } else if (novoStatus === 'Livre') {
+    territorioAtivo.info.responsavel = "";
+    territorioAtivo.info.dataInicio = "";
+    territorioAtivo.info.dataConclusao = "";
+  }
+
+  localStorage.setItem('territorios_dados_db', JSON.stringify(dadosTerritorios));
+  renderizarMapa();
+  abrirPainelTerritorio(territorioAtivo.info.codigo, territorioAtivo.layer);
 }
 
-#btn-gps {
-  background-color: #007bff;
-  color: #fff;
-  border: none;
-  cursor: pointer;
-  font-weight: bold;
+// 7. Geração de URL Dinâmica (Correção de Foco com Search API)
+function obterUrlDinamicaMaps() {
+  if (!territorioAtivo || !territorioAtivo.layer) return null;
+
+  const bounds = territorioAtivo.layer.getBounds();
+  const centro = bounds.getCenter();
+  const lat = centro.lat.toFixed(6);
+  const lng = centro.lng.toFixed(6);
+
+  // Usa a API Universal do Google Maps. Força o app a ignorar a visão padrão e focar na coordenada do território clicado.
+  return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
 }
 
-#map {
-  width: 100%;
-  height: 100%;
+// Abertura Direta no Maps
+function abrirRotaGoogleMaps() {
+  const url = obterUrlDinamicaMaps();
+  if (url) {
+    window.open(url, '_blank');
+  } else {
+    alert("Selecione um território primeiro.");
+  }
 }
 
-.painel {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: white;
-  z-index: 1000;
-  padding: 16px;
-  padding-bottom: calc(16px + env(safe-area-inset-bottom));
-  border-radius: 16px 16px 0 0;
-  box-shadow: 0 -2px 10px rgba(0,0,0,0.2);
-  transition: transform 0.3s ease-in-out;
+// 8. Geração e Exibição do QR Code
+function gerarQRCodeTerritorio() {
+  const urlMaps = obterUrlDinamicaMaps();
+  if (!urlMaps) {
+    alert("Selecione um território primeiro.");
+    return;
+  }
+
+  // Gera o QR Code com a coordenada exata
+  const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(urlMaps)}`;
+
+  document.getElementById('qr-titulo').innerText = `Território: ${territorioAtivo.info.codigo}`;
+  document.getElementById('qr-img').src = qrApiUrl;
+  document.getElementById('modal-qrcode').classList.remove('oculto');
 }
 
-.painel.oculto {
-  transform: translateY(100%);
+function fecharModalQRCode(event) {
+  document.getElementById('modal-qrcode').classList.add('oculto');
 }
 
-.btn-fechar {
-  float: right;
-  border: none;
-  background: none;
-  font-size: 20px;
-  cursor: pointer;
-  padding: 4px 8px;
-  color: #666;
+// 9. Localização GPS em Tempo Real (Point-in-Polygon)
+function ativarGPS() {
+  if (!navigator.geolocation) {
+    alert('Geolocalização não suportada pelo seu dispositivo.');
+    return;
+  }
+
+  const btnGps = document.getElementById('btn-gps');
+  btnGps.innerText = "Buscando...";
+
+  navigator.geolocation.watchPosition((pos) => {
+    btnGps.innerText = "GPS Ativo";
+    const lat = pos.coords.latitude;
+    const lng = pos.coords.longitude;
+    const pontoAtual = turf.point([lng, lat]);
+
+    if (!marcadorUsuario) {
+      marcadorUsuario = L.circleMarker([lat, lng], {
+        radius: 8,
+        color: '#ffffff',
+        weight: 2,
+        fillColor: '#007bff',
+        fillOpacity: 1
+      }).addTo(map);
+    } else {
+      marcadorUsuario.setLatLng([lat, lng]);
+    }
+
+    let encontrado = false;
+    turf.featureEach(geojsonData, (feature) => {
+      if (turf.booleanPointInPolygon(pontoAtual, feature)) {
+        encontrado = true;
+        const camada = geojsonLayer.getLayers().find(l => l.feature.properties.name === feature.properties.name);
+        abrirPainelTerritorio(feature.properties.name, camada);
+      }
+    });
+
+    if (!encontrado) {
+      console.log("Fora dos polígonos cadastrados.");
+    }
+  }, (erro) => {
+    btnGps.innerText = "📍 Onde Estou?";
+    alert('Erro ao obter GPS: ' + erro.message);
+  }, { enableHighAccuracy: true });
 }
 
-.painel h2 {
-  font-size: 1.2rem;
-  margin-bottom: 8px;
-  color: #333;
-}
-
-.painel p {
-  font-size: 0.9rem;
-  margin: 4px 0;
-  color: #555;
-}
-
-.painel hr {
-  margin: 12px 0;
-  border: 0;
-  border-top: 1px solid #eee;
-}
-
-.painel-acoes {
-  display: flex;
-  gap: 6px;
-  margin-top: 12px;
-  flex-wrap: wrap;
-}
-
-.painel-acoes button {
-  flex: 1;
-  min-width: 70px;
-  padding: 10px 4px;
-  border: none;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: bold;
-  cursor: pointer;
-}
-
-#btn-rota { background: #4285F4; color: white; }
-#btn-qrcode { background: #673AB7; color: white; }
-#btn-iniciar { background: #F4B400; color: black; }
-#btn-concluir { background: #0F9D58; color: white; }
-#btn-livre { background: #6c757d; color: white; }
-
-/* Identificador de código/número no mapa */
-.label-territorio {
-  background: rgba(0, 0, 0, 0.75);
-  color: #fff;
-  border: none;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: bold;
-  padding: 2px 6px;
-}
-
-/* Modal do QR Code */
-.modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.65);
-  z-index: 2000;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 20px;
-}
-
-.modal.oculto {
-  display: none;
-}
-
-.modal-conteudo {
-  background: white;
-  padding: 20px;
-  border-radius: 16px;
-  text-align: center;
-  max-width: 320px;
-  width: 100%;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-}
-
-.modal-conteudo h3 {
-  margin-top: 6px;
-  font-size: 1.1rem;
-  color: #222;
-}
-
-.modal-conteudo img {
-  width: 200px;
-  height: 200px;
-  margin: 14px auto;
-  display: block;
-  border: 1px solid #eee;
-  border-radius: 8px;
-}
-
-.qr-legenda {
-  font-size: 0.85rem;
-  color: #666;
-  margin-bottom: 12px;
-}
-
-.btn-link-direto {
-  width: 100%;
-  padding: 8px;
-  background: #4285F4;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: bold;
-  cursor: pointer;
-}
+// 10. Event Listeners dos Filtros
+document.getElementById('filtro-grupo').addEventListener('change', renderizarMapa);
+document.getElementById('modo-exibicao').addEventListener('change', renderizarMapa);
