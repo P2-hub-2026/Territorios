@@ -5,65 +5,34 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Gestão de Territórios</title>
   
-  <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="style.css">
-  <link rel="manifest" href="manifest.json">
 </head>
 <body>
 
-  <!-- Barra de Controle Superior -->
   <header id="top-bar">
     <select id="filtro-grupo">
-      <option value="TODOS">Todos os Grupos</option>
-      <option value="Grupo 1">Grupo 1</option>
-      <option value="Grupo 2">Grupo 2</option>
-      <option value="Grupo 3">Grupo 3</option>
+      <option value="TODOS">Todos os Territórios</option>
     </select>
-
-    <select id="modo-exibicao">
-      <option value="status">Cores por Status</option>
-      <option value="grupos">Cores por Grupos</option>
-    </select>
-
     <button id="btn-gps" onclick="ativarGPS()">📍 Onde Estou?</button>
   </header>
 
-  <!-- Container do Mapa -->
   <div id="map"></div>
 
-  <!-- Painel Lateral / Ficha do Território -->
   <div id="painel-detalhes" class="painel oculto">
     <button class="btn-fechar" onclick="fecharPainel()">✕</button>
     <h2 id="detalhe-codigo">---</h2>
-    <p><strong>Grupo:</strong> <span id="detalhe-grupo">---</span></p>
     <p><strong>Situação:</strong> <span id="detalhe-status">---</span></p>
     <p><strong>Responsável:</strong> <span id="detalhe-responsavel">---</span></p>
-    <p><strong>Data Início:</strong> <span id="detalhe-inicio">---</span></p>
-    
     <hr>
-    
     <div class="painel-acoes">
-      <button id="btn-rota" onclick="abrirRotaGoogleMaps()">🗺️ Abrir Maps</button>
-      <button id="btn-qrcode" onclick="gerarQRCodeTerritorio()">📱 QR Code</button>
-      <button id="btn-iniciar" onclick="alterarStatusTerritorio('Iniciado')">Iniciar</button>
-      <button id="btn-concluir" onclick="alterarStatusTerritorio('Concluído')">Concluir</button>
-      <button id="btn-livre" onclick="alterarStatusTerritorio('Livre')">Liberar</button>
+      <button id="btn-rota" onclick="abrirGoogleMaps()">🗺️ Abrir Maps</button>
+      <button id="btn-iniciar" onclick="alterarStatus('Iniciado')">Iniciar</button>
+      <button id="btn-concluir" onclick="alterarStatus('Concluído')">Concluir</button>
+      <button id="btn-livre" onclick="alterarStatus('Livre')">Liberar</button>
     </div>
   </div>
 
-  <!-- Modal do QR Code -->
-  <div id="modal-qrcode" class="modal oculto" onclick="fecharModalQRCode(event)">
-    <div class="modal-conteudo" onclick="event.stopPropagation()">
-      <button class="btn-fechar" onclick="fecharModalQRCode()">✕</button>
-      <h3 id="qr-titulo">Território</h3>
-      <img id="qr-img" src="" alt="QR Code do Território">
-      <p class="qr-legenda">Aponte a câmera do celular para abrir o território destacado no Google Maps.</p>
-      <button class="btn-link-direto" onclick="abrirRotaGoogleMaps()">Abrir Link Direto</button>
-    </div>
-  </div>
-
-  <!-- Scripts -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
   <script src="app.js"></script>
