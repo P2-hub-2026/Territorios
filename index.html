@@ -44,10 +44,22 @@
     <hr>
     
     <div class="painel-acoes">
-      <button id="btn-focar" onclick="focarTerritorioAtivo()">🎯 Focar Território</button>
+      <button id="btn-rota" onclick="abrirRotaGoogleMaps()">🗺️ Abrir Maps</button>
+      <button id="btn-qrcode" onclick="gerarQRCodeTerritorio()">📱 QR Code</button>
       <button id="btn-iniciar" onclick="alterarStatusTerritorio('Iniciado')">Iniciar</button>
       <button id="btn-concluir" onclick="alterarStatusTerritorio('Concluído')">Concluir</button>
       <button id="btn-livre" onclick="alterarStatusTerritorio('Livre')">Liberar</button>
+    </div>
+  </div>
+
+  <!-- Modal do QR Code -->
+  <div id="modal-qrcode" class="modal oculto" onclick="fecharModalQRCode(event)">
+    <div class="modal-conteudo" onclick="event.stopPropagation()">
+      <button class="btn-fechar" onclick="fecharModalQRCode()">✕</button>
+      <h3 id="qr-titulo">Território</h3>
+      <img id="qr-img" src="" alt="QR Code do Território">
+      <p class="qr-legenda">Aponte a câmera do celular para abrir o território destacado no Google Maps.</p>
+      <button class="btn-link-direto" onclick="abrirRotaGoogleMaps()">Abrir Link Direto</button>
     </div>
   </div>
 
