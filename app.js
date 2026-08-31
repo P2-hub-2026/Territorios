@@ -87,11 +87,7 @@ fetch('territorios.geojson')
 
     // Renderiza a camada com polígonos
     geojsonLayer = L.geoJSON(geojson, {
-      style: (feature) => ({
-        color: obterCorStatus(feature.properties.name),
-        weight: 2,
-        fillOpacity: 0.4
-      }),
+      style: (feature) => obterEstiloPoligono(feature.properties.name),
       onEachFeature: (feature, layer) => {
         layer.bindTooltip(feature.properties.name, { 
           permanent: false, 
@@ -106,14 +102,34 @@ fetch('territorios.geojson')
   })
   .catch(err => alert("Erro ao carregar territorios.geojson. Verifique se o arquivo está na pasta e execute via Live Server."));
 
-// 4. Regra de Cores por Status
-function obterCorStatus(codigo) {
+// 4. Regra de Estilo e Cores (Livre = sem preenchimento)
+function obterEstiloPoligono(codigo) {
   const item = dadosTerritorios.find(t => t.codigo === codigo);
-  if (!item) return '#0F9D58';
-  
-  if (item.status === 'Iniciado') return '#F4B400';
-  if (item.status === 'Concluído') return '#007bff';
-  return '#0F9D58'; // Livre
+  const status = item ? item.status : 'Livre';
+
+  if (status === 'Iniciado') {
+    return {
+      color: '#F4B400',
+      weight: 2,
+      fillColor: '#F4B400',
+      fillOpacity: 0.45
+    };
+  } else if (status === 'Concluído') {
+    return {
+      color: '#007bff',
+      weight: 2,
+      fillColor: '#007bff',
+      fillOpacity: 0.45
+    };
+  }
+
+  // Status "Livre" (ou padrão): Apenas linha delimitadora, sem preenchimento
+  return {
+    color: '#0F9D58',
+    weight: 2,
+    fillColor: 'transparent',
+    fillOpacity: 0
+  };
 }
 
 // 5. Interação ao Clicar no Território
@@ -126,9 +142,13 @@ function abrirPainel(codigo, layer) {
 
   territorioAtivo = { info: item, layer: layer };
   
-  // Destaca o polígono com contorno reforçado
+  // Destaca o polígono selecionado com contorno reforçado
   camadaDestacada = layer;
-  layer.setStyle({ weight: 4, color: '#FFFFFF', fillOpacity: 0.7 });
+  layer.setStyle({ 
+    weight: 4, 
+    color: '#FFFFFF', 
+    fillOpacity: item.status === 'Livre' ? 0.2 : 0.7 
+  });
   layer.bringToFront();
   map.fitBounds(layer.getBounds(), { padding: [50, 50], maxZoom: 17 });
 
@@ -158,7 +178,9 @@ function alterarStatus(novoStatus) {
   }
 
   localStorage.setItem('banco_territorios', JSON.stringify(dadosTerritorios));
-  geojsonLayer.setStyle(f => ({ color: obterCorStatus(f.properties.name), weight: 2, fillOpacity: 0.4 }));
+  
+  // Atualiza todo o estilo do mapa aplicando a transparência
+  geojsonLayer.setStyle(f => obterEstiloPoligono(f.properties.name));
   abrirPainel(territorioAtivo.info.codigo, territorioAtivo.layer);
 }
 
@@ -177,13 +199,11 @@ function abrirGoogleMaps() {
     return;
   }
 
-  // Calcula o centro do polígono selecionado
   const bounds = territorioAtivo.layer.getBounds();
   const centro = bounds.getCenter();
   const lat = centro.lat.toFixed(14);
   const lng = centro.lng.toFixed(14);
 
-  // Monta a URL parametrizada exatamente com o MID específico do território
   const urlMyMaps = `https://www.google.com/maps/d/u/0/embed?mid=${mid}&ehbc=2E312F&noprof=1&ll=${lat}%2C${lng}&z=16`;
   
   window.open(urlMyMaps, '_blank');
