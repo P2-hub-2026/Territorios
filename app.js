@@ -1,4 +1,7 @@
-// 1. Inicialização das Camadas Oficiais do Google Maps
+// ID do Google My Maps para abrir com a camada de polígonos traçada
+const GOOGLE_MY_MAPS_MID = '143nsIAW7T0eb1rwMMv3T1YPxIMU86tg';
+
+// 1. Inicialização do Mapa com Camada Satélite Híbrida do Google
 const googleSatHibrido = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
   maxZoom: 20,
   attribution: 'Google Maps Satélite'
@@ -15,10 +18,10 @@ const map = L.map('map', {
   layers: [googleSatHibrido]
 });
 
-// Alternância entre camadas no canto superior direito
+// Controle de Alternância de Camadas (Satélite / Ruas)
 L.control.layers({
-  "Google Satélite": googleSatHibrido,
-  "Google Ruas": googleRuas
+  "Satélite": googleSatHibrido,
+  "Ruas": googleRuas
 }, null, { position: 'topright' }).addTo(map);
 
 let geojsonLayer = null;
@@ -28,7 +31,7 @@ let territorioAtivo = null;
 let marcadorUsuario = null;
 let camadaDestacada = null;
 
-// 2. Carregar Dados com Persistência Local
+// 2. Carregar Dados Administrativos e Polígonos GeoJSON
 const dadosSalvos = localStorage.getItem('territorios_dados_db');
 
 Promise.all([
@@ -66,11 +69,11 @@ Promise.all([
     map.fitBounds(geojsonLayer.getBounds(), { padding: [30, 30] });
   }
 }).catch(err => {
-  console.error("Erro ao carregar dados:", err);
-  alert("Erro ao carregar os arquivos de dados.");
+  console.error("Erro ao carregar os dados:", err);
+  alert("Não foi possível carregar os arquivos territoriais.");
 });
 
-// 3. Regra de Cores Padrão
+// 3. Regra de Cores Dinâmicas
 function obterCorPoligono(codigo) {
   const item = dadosTerritorios.find(t => t.codigo === codigo);
   const modo = document.getElementById('modo-exibicao').value;
@@ -81,9 +84,9 @@ function obterCorPoligono(codigo) {
     return item.corGrupo || '#3388ff';
   }
 
-  // Cores por Status quando em repouso
+  // Cores por Status
   switch (item.status) {
-    case 'Iniciado': return '#FF8C00';    // Laranja
+    case 'Iniciado': return '#F4B400';    // Amarelo
     case 'Concluído': return '#007bff';   // Azul
     case 'Atrasado': return '#EA4335';    // Vermelho
     default: return '#0F9D58';            // Verde (Livre)
@@ -122,17 +125,12 @@ function renderizarMapa() {
   }).addTo(map);
 }
 
-// 5. Exibir Ficha e Destacar em Amarelo
+// 5. Exibir Ficha do Território
 function abrirPainelTerritorio(codigo, layer) {
   const item = dadosTerritorios.find(t => t.codigo === codigo);
   if (!item) return;
 
-  // Restaura estilo do território anteriormente destacado
-  if (camadaDestacada && geojsonLayer) {
-    geojsonLayer.resetStyle(camadaDestacada);
-  }
-
-  // Localiza a camada se a chamada vier do GPS
+  // Se a camada não veio pelo clique direto, busca no GeoJSON
   if (!layer && geojsonLayer) {
     geojsonLayer.eachLayer(l => {
       if (l.feature && l.feature.properties.name === codigo) {
@@ -142,19 +140,6 @@ function abrirPainelTerritorio(codigo, layer) {
   }
 
   territorioAtivo = { info: item, layer: layer };
-
-  // Destaque visual: AMARELO vibrante (#FFFF00 / #FFD700) com contorno reforçado
-  if (layer) {
-    camadaDestacada = layer;
-    layer.setStyle({
-      color: '#FFFFFF',          // Borda externa branca de alto contraste
-      weight: 4,
-      fillColor: '#FFE600',      // Amarelo fluorescente/vibrante
-      fillOpacity: 0.75          // Preenchimento bem marcado
-    });
-    layer.bringToFront();
-    map.flyToBounds(layer.getBounds(), { padding: [40, 40], duration: 1.0 });
-  }
 
   document.getElementById('detalhe-codigo').innerText = item.codigo;
   document.getElementById('detalhe-grupo').innerText = item.grupo;
@@ -173,22 +158,38 @@ function fecharPainel() {
   }
 }
 
-// 6. Focar Território Ativo e Reaplicar Destaque Amarelo
+// 6. Focar Território: Aplica cor Amarela com 30% de opacidade e abre no Google Maps
 function focarTerritorioAtivo() {
-  if (territorioAtivo && territorioAtivo.layer) {
-    // Reafirma a marcação amarela e centraliza suavemente
-    territorioAtivo.layer.setStyle({
-      color: '#FFFFFF',
-      weight: 5,
-      fillColor: '#FFE600',
-      fillOpacity: 0.85
-    });
-    territorioAtivo.layer.bringToFront();
-    map.flyToBounds(territorioAtivo.layer.getBounds(), { padding: [30, 30], duration: 1.2, maxZoom: 18 });
+  if (!territorioAtivo || !territorioAtivo.layer) return;
+
+  const layer = territorioAtivo.layer;
+
+  // Restaura estilo da camada anterior se houver
+  if (camadaDestacada && geojsonLayer) {
+    geojsonLayer.resetStyle(camadaDestacada);
   }
+
+  camadaDestacada = layer;
+
+  // Marcação amarela (#FFD600) com 30% de opacidade de preenchimento
+  layer.setStyle({
+    color: '#FFD600',       // Contorno Amarelo
+    weight: 4,              // Borda reforçada
+    fillColor: '#FFD600',   // Preenchimento Amarelo
+    fillOpacity: 0.30       // 30% de opacidade
+  });
+  layer.bringToFront();
+
+  // Aproximação suave no mapa local
+  map.flyToBounds(layer.getBounds(), { padding: [50, 50], duration: 1.0 });
+
+  // Abre o My Maps com os polígonos e focado no centro do território
+  const centro = layer.getBounds().getCenter();
+  const urlMaps = `https://www.google.com/maps/d/viewer?mid=${GOOGLE_MY_MAPS_MID}&ll=${centro.lat}%2C${centro.lng}&z=17`;
+  window.open(urlMaps, '_blank');
 }
 
-// 7. Alteração de Status
+// 7. Alteração de Status com Salvamento Automático
 function alterarStatusTerritorio(novoStatus) {
   if (!territorioAtivo || !territorioAtivo.info) return;
 
@@ -212,7 +213,7 @@ function alterarStatusTerritorio(novoStatus) {
   abrirPainelTerritorio(territorioAtivo.info.codigo, territorioAtivo.layer);
 }
 
-// 8. GPS em Tempo Real
+// 8. GPS em Tempo Real e Detecção de Área
 function ativarGPS() {
   if (!navigator.geolocation) {
     alert('Geolocalização não suportada pelo seu dispositivo.');
@@ -250,7 +251,7 @@ function ativarGPS() {
     });
 
     if (!encontrado) {
-      console.log("Fora dos polígonos cadastrados.");
+      console.log("Localização atual fora dos polígonos.");
     }
   }, (erro) => {
     btnGps.innerText = "📍 Onde Estou?";

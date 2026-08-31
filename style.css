@@ -110,8 +110,8 @@ body, html {
   cursor: pointer;
 }
 
-#btn-mymaps { background: #4285F4; color: white; }
-#btn-iniciar { background: #F4B400; color: black; }
+#btn-focar { background: #F4B400; color: #111; }
+#btn-iniciar { background: #007bff; color: white; }
 #btn-concluir { background: #0F9D58; color: white; }
 #btn-livre { background: #6c757d; color: white; }
 
